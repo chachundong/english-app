@@ -1,548 +1,1710 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f5f1e8" />
-  <title>나만의 영어 표현 — Sentence Garden</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#443f75">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="MyLingo">
+  <title>MyLingo</title>
   <style>
+    /* ============================================================
+   MyLingo — 1단계: 로컬 HTML (localStorage + Web Speech TTS)
+   디자인: V2 구분선 리스트 / 가독성 우선 팔레트
+   ============================================================ */
     :root {
-      --ink: #17231d;
-      --muted: #69736e;
-      --paper: #f5f1e8;
-      --panel: rgba(255, 253, 247, 0.88);
-      --line: #d8d6c9;
-      --green: #235b43;
-      --green-dark: #174332;
-      --lime: #d7ed84;
-      --coral: #f18a6c;
-      --shadow: 0 18px 50px rgba(45, 62, 51, 0.1);
+      --bg: #ffffff;
+      --surface: #f1f3f6;
+      --card: #ffffff;
+      --text: #101318;
+      --muted: #565d68;
+      /* 흰 배경 대비 6.4:1 (WCAG AA) */
+      --line: #d2d6dd;
+      --line-soft: #e2e5ea;
+      --accent: #4338ca;
+      --on-accent: #ffffff;
+      --accent-soft: #ecebfb;
+      --accent-line: #c7c3f2;
+      /* 헤더 전용 — accent 와 같은 인디고 계열이되 채도·명도를 낮춘 3단 그라데이션.
+         가장 밝은 지점(#4c4880)에서도 흰 글자 대비 8.2:1 로 여유 있음 */
+      --hd-1: #4c4880;
+      --hd-2: #3a3765;
+      --hd-3: #2b2a48;
+      --ok: #0b7a56;
+      --ok-soft: #e2f4ed;
+      --danger: #b3261e;
+      --danger-line: #e8c3c0;
+      --send: #0b7a56;
+      /* 오른쪽 스와이프 = 테스트로 */
+      --edit: #4b5563;
+      --safe-b: env(safe-area-inset-bottom, 0px);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent
+    }
 
-    html { scroll-behavior: smooth; }
+    html,
+    body {
+      height: 100%
+    }
 
     body {
       margin: 0;
-      min-height: 100vh;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 8% 8%, rgba(215, 237, 132, 0.55), transparent 23rem),
-        radial-gradient(circle at 94% 16%, rgba(241, 138, 108, 0.18), transparent 20rem),
-        var(--paper);
-      font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior-y: none;
     }
 
-    button, input, textarea { font: inherit; }
-    button { cursor: pointer; }
+    button,
+    input {
+      font-family: inherit;
+      color: inherit
+    }
 
-    .shell { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0
+    }
 
-    header {
+    /* ---------- 앱 골격 ---------- */
+    /* overflow:clip 은 hidden 과 달리 스크롤 자체를 막는다.
+   (닫힌 시트가 화면 밖으로 밀려나며 스크롤 영역을 넓히는 문제 방지) */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+      overflow: clip;
+    }
+
+    /* 헤더: 차분한 인디고 그라데이션 · 로고 가운데 · 오른쪽 톱니바퀴(설정)
+   세로 폭은 이전(약 50px)의 1.5배인 75px 기준 */
+    .hd {
+      flex: none;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 26px 0 18px;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--hd-1) 0%, var(--hd-2) 55%, var(--hd-3) 100%);
+      color: var(--on-accent);
+      padding: calc(env(safe-area-inset-top, 0px) + 18px) 12px 18px;
     }
 
-    .brand { display: flex; align-items: center; gap: 11px; font-weight: 780; letter-spacing: -0.03em; }
-    .brand-mark { width: 32px; height: 32px; border-radius: 50% 50% 46% 54%; background: var(--green); position: relative; transform: rotate(-9deg); }
-    .brand-mark::after { content: ""; position: absolute; width: 12px; height: 6px; border: 2px solid var(--lime); border-width: 2px 2px 0 0; right: -4px; top: 3px; transform: rotate(-28deg); }
-    .storage-note { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 7px; }
-    .storage-note::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #43a56f; box-shadow: 0 0 0 4px rgba(67,165,111,.12); }
+    .hd .sp {
+      flex: none;
+      width: 36px
+    }
 
-    .hero { padding: 58px 0 46px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 60px; align-items: end; }
-    .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--green); font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    .eyebrow::before { content: ""; width: 28px; height: 1px; background: currentColor; }
-    h1 { margin: 0; max-width: 690px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(46px, 7vw, 82px); line-height: .98; letter-spacing: -.055em; font-weight: 500; }
-    h1 em { color: var(--green); font-weight: 500; }
-    .intro { margin: 0 0 9px; max-width: 370px; color: var(--muted); line-height: 1.75; font-size: 16px; }
-    .stats { display: flex; gap: 30px; margin-top: 24px; }
-    .stat strong { display: block; font-family: Georgia, serif; color: var(--green); font-size: 28px; font-weight: 500; }
-    .stat span { color: var(--muted); font-size: 12px; }
+    /* 톱니바퀴와 같은 폭 → 로고가 정확히 가운데 */
+    /* 로고: 기하학적 산세리프(Avenir Next / Futura)로 산뜻하게.
+   웹폰트를 싣지 않으므로 iOS·macOS 기본 탑재 폰트만 사용한다. */
+    .logo {
+      flex: 1;
+      text-align: center;
+      font-family: "Avenir Next", "Avenir", Futura, "Trebuchet MS", -apple-system, sans-serif;
+      font-size: 25px;
+      line-height: 1.2;
+      letter-spacing: -.015em;
+      font-weight: 400;
+      color: rgba(255, 255, 255, .68);
+    }
 
-    .composer {
-      position: relative;
+    .logo em {
+      font-style: normal;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: -.005em
+    }
+
+    /* 설정: 반투명 칩을 항상 깔아 헤더 안의 '버튼'으로 읽히게 한다 */
+    .hd-gear {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
       display: grid;
-      grid-template-columns: 1fr 1fr auto;
-      gap: 14px;
-      padding: 22px;
-      background: var(--green);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
-    }
-    .composer::before { content: "새 문장 심기"; position: absolute; right: 22px; top: -31px; color: var(--green); font-size: 13px; font-weight: 750; }
-    .field-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 3px 8px; }
-    .field label { display: block; color: rgba(255,255,255,.72); font-size: 12px; font-weight: 700; }
-    .translate-status { min-height: 16px; color: rgba(255,255,255,.52); font-size: 11px; font-weight: 700; text-align: right; }
-    .translate-status.is-working { color: var(--lime); }
-    .translate-status.is-error { color: #ffc9ba; }
-    .translate-status.is-done { color: rgba(255,255,255,.72); }
-    .field textarea {
-      width: 100%; min-height: 92px; resize: vertical; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; padding: 14px 15px; color: white; background: rgba(255,255,255,.09); outline: none; line-height: 1.5;
-    }
-    .field textarea::placeholder { color: rgba(255,255,255,.42); }
-    .field textarea:focus { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(215,237,132,.12); }
-    .add-button { align-self: end; min-width: 106px; height: 92px; border: 0; border-radius: 14px; background: var(--lime); color: var(--green-dark); font-weight: 850; transition: transform .18s, background .18s; }
-    .add-button:hover { transform: translateY(-2px); background: #e2f59b; }
-
-    .library { padding: 62px 0 90px; }
-    .library-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
-    h2 { margin: 0; font-family: Georgia, serif; font-size: 30px; font-weight: 500; letter-spacing: -.03em; }
-    .helper { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
-    .library-controls { display: flex; align-items: center; gap: 10px; }
-    .review-mode-switch { display: flex; padding: 4px; border: 1px solid var(--line); border-radius: 99px; background: rgba(255,255,255,.45); }
-    .mode-button { border: 0; border-radius: 99px; padding: 8px 12px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 750; white-space: nowrap; }
-    .mode-button.active { color: white; background: var(--green); }
-    .toggle-all { border: 1px solid var(--line); border-radius: 99px; padding: 9px 14px; color: var(--green); background: rgba(255,255,255,.38); font-size: 12px; font-weight: 750; }
-
-    .sentence-list { display: grid; gap: 14px; padding-top: 20px; }
-    .card { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 18px; align-items: center; padding: 23px 24px; background: var(--panel); border: 1px solid rgba(216,214,201,.9); border-radius: 18px; box-shadow: 0 8px 25px rgba(45,62,51,.04); transition: border-color .18s, transform .18s; }
-    .card:hover { transform: translateY(-2px); border-color: #b9c3b8; }
-    .number { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--green); background: #e9efd4; font: 500 16px Georgia, serif; }
-    .english { margin: 0; overflow-wrap: anywhere; font-family: Georgia, "Times New Roman", serif; font-size: clamp(21px, 3vw, 27px); line-height: 1.35; letter-spacing: -.015em; }
-    .korean { margin: 8px 0 0; color: var(--muted); line-height: 1.55; transition: filter .2s, opacity .2s; }
-    .card.meaning-mode.concealed .korean,
-    .card.writing-mode.concealed .english { filter: blur(8px); opacity: .28; user-select: none; }
-    .card.writing-mode .copy { display: flex; flex-direction: column; }
-    .card.writing-mode .korean { order: 1; margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; }
-    .card.writing-mode .english { order: 2; margin-top: 10px; color: var(--green); }
-    .actions { display: flex; gap: 8px; }
-    .icon-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; color: var(--ink); background: white; font-size: 12px; font-weight: 700; }
-    .icon-button:hover { border-color: var(--green); color: var(--green); }
-    .icon-button.delete { color: #a14e3c; }
-    .icon { font-size: 15px; line-height: 1; }
-
-    .empty { padding: 70px 24px; text-align: center; border: 1px dashed #bfc3b7; border-radius: 20px; color: var(--muted); }
-    .empty-art { width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50% 50% 44% 56%; background: #dfe9bd; position: relative; transform: rotate(-8deg); }
-    .empty-art::after { content: ""; position: absolute; left: 28px; top: 13px; width: 1px; height: 70px; background: var(--green); transform: rotate(8deg); }
-    .empty strong { display: block; margin-bottom: 7px; color: var(--ink); font-family: Georgia, serif; font-size: 21px; font-weight: 500; }
-
-    .toast { position: fixed; left: 50%; bottom: 24px; z-index: 10; transform: translate(-50%, 20px); padding: 11px 16px; border-radius: 99px; color: white; background: var(--ink); font-size: 13px; opacity: 0; pointer-events: none; transition: .25s ease; }
-    .toast.show { opacity: 1; transform: translate(-50%, 0); }
-
-    @media (max-width: 800px) {
-      .shell { width: min(100% - 28px, 640px); }
-      header { padding-top: 20px; }
-      .brand { font-size: 18px; }
-      .storage-note span { display: none; }
-      .hero { grid-template-columns: 1fr; gap: 22px; padding: 40px 0 52px; }
-      .eyebrow { font-size: 14px; }
-      .intro { max-width: 520px; font-size: 18px; line-height: 1.7; }
-      .stat strong { font-size: 32px; }
-      .stat span { font-size: 14px; }
-      .composer { grid-template-columns: 1fr; }
-      .field label { font-size: 14px; }
-      .translate-status { font-size: 12px; }
-      .field textarea { min-height: 106px; font-size: 18px; }
-      .add-button { height: 58px; width: 100%; font-size: 17px; }
-      h2 { font-size: 34px; }
-      .helper { font-size: 15px; line-height: 1.5; }
-      .library-head { flex-direction: column; align-items: stretch; }
-      .library-controls { justify-content: space-between; }
-      .review-mode-switch { flex: 1; }
-      .mode-button { flex: 1; padding: 10px 9px; font-size: 14px; }
-      .toggle-all { padding: 11px 15px; font-size: 14px; }
-      .card { grid-template-columns: 36px 1fr; padding: 19px 17px; gap: 13px; align-items: start; }
-      .number { width: 34px; height: 34px; }
-      .english { font-size: 26px; line-height: 1.42; }
-      .korean { font-size: 17px; line-height: 1.65; }
-      .card.writing-mode .korean { font-size: 20px; }
-      .actions { grid-column: 2; flex-wrap: wrap; }
-      .icon-button { flex: 1; justify-content: center; min-width: 86px; padding: 11px 10px; font-size: 14px; }
-      .empty { font-size: 16px; line-height: 1.6; }
-      .empty strong { font-size: 24px; }
+      place-items: center;
+      color: #fff;
+      background: rgba(255, 255, 255, .16);
+      transition: background .16s ease;
     }
 
-    @media (max-width: 480px) {
-      h1 { font-size: 49px; line-height: 1.02; }
-      .hero { padding-top: 28px; }
-      .composer { padding: 17px; border-radius: 18px; }
-      .composer::before { display: none; }
-      .library { padding-top: 48px; }
-      .library-controls { flex-direction: column; align-items: stretch; }
-      .toggle-all { width: 100%; }
-      .toggle-all { flex-shrink: 0; }
+    .hd-gear svg {
+      width: 19px;
+      height: 19px
+    }
+
+    .hd-gear.on {
+      background: rgba(255, 255, 255, .34)
+    }
+
+    .hd-gear:active {
+      background: rgba(255, 255, 255, .34)
+    }
+
+    .tab-panel {
+      flex: 1;
+      min-height: 0;
+      display: none;
+      flex-direction: column;
+      padding: 12px 16px 8px
+    }
+
+    .tab-panel.on {
+      display: flex
+    }
+
+    .tab-panel.quiz {
+      padding-bottom: 14px
+    }
+
+    .tab-panel.scroll {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch
+    }
+
+    /* ---------- 학습장 상단 ---------- */
+    .search {
+      position: relative;
+      flex: none;
+      margin: 0 0 12px
+    }
+
+    .search svg {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 17px;
+      height: 17px;
+      color: var(--muted)
+    }
+
+    .search input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 38px 12px 38px;
+      font-size: 15px;
+    }
+
+    .search input::placeholder {
+      color: var(--muted)
+    }
+
+    .search .clr {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      display: none;
+      place-items: center;
+      color: var(--muted)
+    }
+
+    .search .clr.on {
+      display: grid
+    }
+
+    .search .clr svg {
+      position: static;
+      transform: none;
+      width: 15px;
+      height: 15px
+    }
+
+    .sec-label {
+      flex: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 2px 8px;
+      font-size: 13.5px;
+      color: var(--muted);
+      font-weight: 600
+    }
+
+    /* ---------- 리스트 (V2 구분선) ---------- */
+    .list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -16px;
+      padding-bottom: 8px
+    }
+
+    .row {
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line-soft)
+    }
+
+    .row:first-child {
+      border-top: 1px solid var(--line-soft)
+    }
+
+    .row.gone {
+      transition: height .22s ease, opacity .18s ease;
+      overflow: hidden
+    }
+
+    /* 스와이프로 드러나는 뒷면 */
+    .row-send,
+    .row-acts {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center
+    }
+
+    .row-send {
+      left: 0;
+      right: 0;
+      background: var(--send);
+      color: #fff;
+      padding-left: 20px;
+      font-size: 15px;
+      font-weight: 700;
+      gap: 8px
+    }
+
+    .row-send svg {
+      width: 19px;
+      height: 19px
+    }
+
+    .row-acts {
+      right: 0
+    }
+
+    .row-acts button {
+      width: 74px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .row-acts .b-edit {
+      background: var(--edit)
+    }
+
+    .row-acts .b-del {
+      background: var(--danger)
+    }
+
+    .row-acts svg {
+      width: 19px;
+      height: 19px
+    }
+
+    /* 앞면 */
+    .row-front {
+      position: relative;
+      z-index: 2;
+      background: var(--card);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 11px 16px;
+      touch-action: pan-y;
+      will-change: transform;
+    }
+
+    .row-front.snap {
+      transition: transform .2s cubic-bezier(.22, .61, .36, 1)
+    }
+
+    .row-front .txt {
+      flex: 1;
+      min-width: 0
+    }
+
+    /* line-height 를 정수 px 로 고정 → 행 높이가 소수점이 되어
+   구분선 1px 이 어떤 행에서만 2px 로 굵게 렌더링되던 문제 방지 */
+    .row-front .en {
+      font-size: 16.5px;
+      line-height: 22px;
+      letter-spacing: -.01em;
+      font-weight: 500;
+      margin-bottom: 4px;
+      word-break: break-word
+    }
+
+    .row-front .ko {
+      font-size: 13.5px;
+      line-height: 18px;
+      color: var(--muted);
+      word-break: break-word
+    }
+
+    .ico {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      flex: none;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: #3c434d;
+    }
+
+    .ico svg {
+      width: 19px;
+      height: 19px
+    }
+
+    .ico:active {
+      background: var(--accent-soft);
+      border-color: var(--accent-line);
+      color: var(--accent)
+    }
+
+    .ico.playing {
+      background: var(--accent-soft);
+      border-color: var(--accent-line);
+      color: var(--accent)
+    }
+
+    /* ---------- 빈 화면 ---------- */
+    .empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px 20px;
+      gap: 10px;
+      color: var(--muted)
+    }
+
+    .empty .big {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .empty p {
+      margin: 0;
+      font-size: 14.5px;
+      line-height: 1.65
+    }
+
+    /* ---------- 테스트 탭 ----------
+   진행표시(1/2)와 버튼을 위/아래에 고정하고 카드만 가운데 정렬한다.
+   정답 확인 전후로 카드 높이가 달라져도 위아래가 흔들리지 않는다. */
+    .prog {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 14px
+    }
+
+    .qwrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch
+    }
+
+    .qfoot {
+      flex: none;
+      padding-top: 14px
+    }
+
+    .streak {
+      display: flex;
+      gap: 5px;
+      align-items: center
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--line)
+    }
+
+    .dot.f {
+      background: var(--accent)
+    }
+
+    /* margin:auto 0 → 넘칠 때 잘리지 않으면서 세로 가운데 정렬 */
+    .qcard {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 26px 20px;
+      text-align: center;
+      margin: auto 0
+    }
+
+    .qcard .tag {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 14px
+    }
+
+    .qcard .ko-q {
+      font-size: 20px;
+      line-height: 1.5;
+      font-weight: 700;
+      word-break: break-word
+    }
+
+    .answer {
+      border-top: 1px solid var(--line-soft);
+      margin-top: 22px;
+      padding-top: 20px
+    }
+
+    .answer .en-a {
+      font-size: 18px;
+      line-height: 1.42;
+      font-weight: 500;
+      margin-bottom: 16px;
+      word-break: break-word
+    }
+
+    .play {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14.5px;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent-line);
+      padding: 10px 18px;
+      border-radius: 99px;
+    }
+
+    .play svg {
+      width: 17px;
+      height: 17px
+    }
+
+    .pair {
+      display: flex;
+      gap: 10px
+    }
+
+    .btn {
+      flex: none;
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 700;
+      background: var(--accent);
+      color: var(--on-accent);
+      border: 1px solid var(--accent);
+    }
+
+    .pair .btn {
+      flex: 1
+    }
+
+    .btn:disabled {
+      opacity: .5
+    }
+
+    .btn.wrong {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--line)
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--line);
+      font-weight: 600;
+      width: 100%
+    }
+
+    .btn.danger {
+      background: transparent;
+      color: var(--danger);
+      border-color: var(--danger-line);
+      width: 100%
+    }
+
+    .btn.block {
+      width: 100%
+    }
+
+    .hint {
+      text-align: center;
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: 16px;
+      line-height: 1.6
+    }
+
+    /* ---------- 설정 탭 ---------- */
+    .grp {
+      margin-bottom: 18px
+    }
+
+    .grp>h3 {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 2px 8px
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      overflow: hidden
+    }
+
+    .panel .r {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px;
+      font-size: 15px
+    }
+
+    .panel .r+.r {
+      border-top: 1px solid var(--line-soft)
+    }
+
+    .panel .r .v {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: right
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ok);
+      background: var(--ok-soft);
+      padding: 5px 11px;
+      border-radius: 99px;
+      white-space: nowrap
+    }
+
+    .pill.off {
+      color: var(--muted);
+      background: var(--surface)
+    }
+
+    .pill .d {
+      width: 7px;
+      height: 7px;
+      border-radius: 99px;
+      background: currentColor
+    }
+
+    .pad {
+      padding: 14px
+    }
+
+    .pad input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 12px 13px;
+      font-size: 15px;
+      margin-bottom: 9px
+    }
+
+    .pad input::placeholder {
+      color: var(--muted)
+    }
+
+    .pad .note {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 9px 2px 0
+    }
+
+    .stats {
+      display: flex;
+      gap: 9px
+    }
+
+    .stat {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 14px 6px;
+      text-align: center
+    }
+
+    .stat .n {
+      font-size: 25px;
+      font-weight: 700;
+      letter-spacing: -.02em
+    }
+
+    .stat .l {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 4px
+    }
+
+    /* ---------- 탭바 ---------- */
+    .tb {
+      flex: none;
+      display: flex;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      background: var(--bg);
+      padding: 8px 6px calc(var(--safe-b) + 9px)
+    }
+
+    .tb button {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600
+    }
+
+    .tb button svg {
+      width: 23px;
+      height: 23px
+    }
+
+    /* 현재 보고 있는 탭은 알약 배경 + 테마색으로 확실히 구분 */
+    .tb .ti {
+      width: 52px;
+      height: 30px;
+      border-radius: 99px;
+      display: grid;
+      place-items: center;
+      transition: background .16s ease
+    }
+
+    .tb button.on {
+      color: var(--accent);
+      font-weight: 700
+    }
+
+    .tb button.on .ti {
+      background: var(--accent-soft)
+    }
+
+    /* 가운데: 진한 원 안에 + (새 표현 추가) */
+    .tb .tb-add {
+      justify-content: center
+    }
+
+    .tb .fab {
+      width: 48px;
+      height: 48px;
+      border-radius: 99px;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 5px 14px rgba(67, 56, 202, .32);
+    }
+
+    .tb .fab svg {
+      width: 26px;
+      height: 26px;
+      stroke-width: 2.6
+    }
+
+    .tb .tb-add:active .fab {
+      transform: scale(.94)
+    }
+
+    /* ---------- 시트 ---------- */
+    .dim {
+      position: absolute;
+      inset: 0;
+      background: rgba(16, 19, 24, .42);
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s
+    }
+
+    .dim.on {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    .sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 21;
+      background: var(--bg);
+      border-radius: 22px 22px 0 0;
+      padding: 14px 16px calc(var(--safe-b) + 22px);
+      border-top: 1px solid var(--line);
+      transform: translateY(102%);
+      transition: transform .24s cubic-bezier(.22, .61, .36, 1);
+    }
+
+    .sheet.on {
+      transform: translateY(0)
+    }
+
+    .sheet .grab {
+      width: 38px;
+      height: 4px;
+      border-radius: 99px;
+      background: var(--line);
+      margin: 0 auto 14px
+    }
+
+    .sheet h4 {
+      margin: 0 0 14px;
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center
+    }
+
+    .sheet input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      margin-bottom: 10px
+    }
+
+    .sheet input::placeholder {
+      color: var(--muted)
+    }
+
+    .sheet .btn {
+      width: 100%;
+      margin-top: 6px
+    }
+
+    /* ---------- 토스트 ---------- */
+    #toast {
+      position: absolute;
+      left: 50%;
+      bottom: 96px;
+      transform: translate(-50%, 14px);
+      z-index: 40;
+      background: #101318;
+      color: #fff;
+      font-size: 14.5px;
+      font-weight: 600;
+      padding: 12px 18px;
+      border-radius: 99px;
+      max-width: 88%;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+
+    #toast.on {
+      opacity: 1;
+      transform: translate(-50%, 0)
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      * {
+        transition-duration: .01ms !important
+      }
     }
   </style>
 </head>
+
 <body>
-  <header class="shell">
-    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Sentence Garden</div>
-    <div class="storage-note"><span>이 브라우저에 안전하게 저장돼요</span></div>
-  </header>
 
-  <main class="shell">
-    <section class="hero" aria-labelledby="page-title">
-      <div>
-        <div class="eyebrow">A little every day</div>
-        <h1 id="page-title">나만의<br><em>영어 표현</em></h1>
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.6-3.6" />
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M11 5 6.5 9H3v6h3.5L11 19V5z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18.5 5.8a9 9 0 0 1 0 12.4" />
+    </symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M4 20h4L19 9a2.4 2.4 0 0 0-3.4-3.4L4.5 16.7 4 20z" />
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M4 7h16M9.5 7V5h5v2M6.5 7l1 13h9l1-13" />
+    </symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M4 12h15M13 6l6 6-6 6" />
+    </symbol>
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5v-15z" />
+      <path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19v-3" />
+    </symbol>
+    <symbol id="i-quiz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path
+        d="M9 4.2H6.8A1.8 1.8 0 0 0 5 6v13.2A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.8-1.8V6a1.8 1.8 0 0 0-1.8-1.8H15" />
+      <rect x="9" y="2.6" width="6" height="3.4" rx="1.3" />
+      <path d="m8.9 13.3 2.2 2.2 4.3-4.6" />
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+      stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.4" />
+      <path
+        d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z" />
+    </symbol>
+  </svg>
+
+  <div id="app">
+
+    <header class="hd">
+      <span class="sp"></span>
+      <div class="logo">My<em>Lingo</em></div>
+      <button class="hd-gear" id="btn-settings" data-tab="settings" aria-label="설정"><svg>
+          <use href="#i-gear" />
+        </svg></button>
+    </header>
+
+    <!-- ============ 학습장 탭 ============ -->
+    <section class="tab-panel on" id="p-words">
+      <div class="search">
+        <svg>
+          <use href="#i-search" />
+        </svg>
+        <input id="q" type="search" placeholder="문장 또는 뜻으로 검색" autocomplete="off">
+        <button class="clr" id="q-clear" aria-label="검색어 지우기"><svg>
+            <use href="#i-x" />
+          </svg></button>
       </div>
-      <div>
-        <p class="intro">마음에 남은 영어 문장을 뜻과 함께 저장하세요. 뜻을 가리고 떠올려 보는 짧은 복습이 오래가는 기억을 만듭니다.</p>
+      <div class="sec-label"><span></span><span id="words-count">0개</span></div>
+      <div class="list" id="word-list"></div>
+    </section>
+
+    <!-- ============ 테스트 탭 ============ -->
+    <section class="tab-panel quiz" id="p-review"></section>
+
+    <!-- ============ 설정 탭 ============ -->
+    <section class="tab-panel scroll" id="p-settings">
+      <div class="grp">
+        <h3>데이터 통계</h3>
         <div class="stats">
-          <div class="stat"><strong id="sentenceCount">0</strong><span>저장한 문장</span></div>
-          <div class="stat"><strong id="hiddenCount">0</strong><span id="hiddenLabel">가려진 뜻</span></div>
-        </div>
-      </div>
-    </section>
-
-    <form class="composer" id="sentenceForm">
-      <div class="field">
-        <div class="field-top">
-          <label for="englishInput">ENGLISH SENTENCE</label>
-        </div>
-        <textarea id="englishInput" maxlength="500" placeholder="The best way out is always through." required></textarea>
-      </div>
-      <div class="field">
-        <div class="field-top">
-          <label for="koreanInput">한국어 뜻</label>
-          <span class="translate-status" id="translateStatus" role="status" aria-live="polite"></span>
-        </div>
-        <textarea id="koreanInput" maxlength="500" placeholder="영어를 입력하면 자동으로 채워져요." aria-required="true"></textarea>
-      </div>
-      <button class="add-button" type="submit">＋ 추가하기</button>
-    </form>
-
-    <section class="library" aria-labelledby="library-title">
-      <div class="library-head">
-        <div><h2 id="library-title">My sentences</h2><p class="helper" id="reviewHelper">영어를 보고 한국어 뜻을 떠올려 보세요.</p></div>
-        <div class="library-controls">
-          <div class="review-mode-switch" aria-label="복습 방식 선택">
-            <button class="mode-button active" type="button" data-mode="meaning">영어 → 뜻</button>
-            <button class="mode-button" type="button" data-mode="writing">한국어 → 영작</button>
+          <div class="stat">
+            <div class="n" id="s-total">0</div>
+            <div class="l">전체 표현</div>
           </div>
-          <button class="toggle-all" id="toggleAllButton" type="button">뜻 모두 가리기</button>
+          <div class="stat">
+            <div class="n" id="s-done">0</div>
+            <div class="l">암기 완료</div>
+          </div>
+          <div class="stat">
+            <div class="n" id="s-learn">0</div>
+            <div class="l">학습중</div>
+          </div>
         </div>
       </div>
-      <div class="sentence-list" id="sentenceList" aria-live="polite"></div>
-    </section>
-  </main>
 
-  <div class="toast" id="toast" role="status"></div>
+      <div class="grp">
+        <h3>동기화 상태</h3>
+        <div class="panel">
+          <div class="r"><span>Supabase</span><span class="pill off" id="sync-pill"><i class="d"></i>미연결</span></div>
+          <div class="r"><span>저장 위치</span><span class="v" id="sync-where">이 기기 (localStorage)</span></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h3>ElevenLabs API 키</h3>
+        <div class="panel">
+          <div class="pad">
+            <input id="el-key" type="password" placeholder="sk-로 시작하는 키" autocomplete="off">
+            <button class="btn ghost" id="el-save">저장하기</button>
+            <p class="note" id="el-note"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h3>데이터 관리</h3>
+        <button class="btn danger" id="btn-reset">데이터 초기화</button>
+        <p class="note" style="color:var(--muted);font-size:12.5px;line-height:1.6;margin:9px 2px 0">
+          모든 표현을 지우고 샘플 3개로 되돌립니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ 탭바 ============ -->
+    <nav class="tb">
+      <button class="on" data-tab="words"><span class="ti"><svg>
+            <use href="#i-book" />
+          </svg></span>학습장</button>
+      <button class="tb-add" id="btn-add-nav" aria-label="새 표현 추가"><span class="fab"><svg>
+            <use href="#i-plus" />
+          </svg></span></button>
+      <button data-tab="review"><span class="ti"><svg>
+            <use href="#i-quiz" />
+          </svg></span>테스트</button>
+    </nav>
+
+    <!-- ============ 입력/수정 시트 ============ -->
+    <div class="dim" id="dim"></div>
+    <div class="sheet" id="sheet">
+      <div class="grab"></div>
+      <h4 id="sheet-title">새 표현 추가</h4>
+      <input id="in-sentence" type="text" placeholder="영어 문장" autocapitalize="sentences">
+      <input id="in-meaning" type="text" placeholder="한국어 뜻">
+      <button class="btn" id="sheet-save">확인</button>
+    </div>
+
+    <div id="toast"></div>
+  </div>
 
   <script>
-    const STORAGE_KEY = "sentence-garden-items-v1";
-    const BACKUP_KEY = "sentence-garden-items-backup-v1";
-    const TRANSLATION_CACHE_KEY = "sentence-garden-translation-cache-v1";
-    const TRANSLATION_DEBOUNCE_MS = 700;
-    const LEGACY_STORAGE_KEYS = ["sentence-garden-items", "sentenceGardenItems", "sentences"];
-    const RESTORED_SENTENCES = [
-      { id: "restored-1", english: "Did you pick up on that?", korean: "그거 눈치챘어?", createdAt: "2026-08-09T00:00:00.000Z" },
-      { id: "restored-2", english: "Let me figure it out and get back to you.", korean: "알아보고 연락줄게", createdAt: "2026-08-09T00:00:01.000Z" },
-      { id: "restored-3", english: "The best way out is always through.", korean: "가장 좋은 해결책은 언제나 정면돌파다.", createdAt: "2026-08-09T00:00:02.000Z" }
+    'use strict';
+
+    /* ============================================================
+       1. 상수 · 샘플 데이터
+       ============================================================ */
+    const STORAGE_KEY = 'mylingo_words';
+    const KEY_ELEVEN = 'mylingo_elevenlabs_key';
+    const MASTER_AT = 3;              // 연속 정답 3회 → 암기 완료
+    const ACTION_W = 148;            // 수정+삭제 버튼 폭
+    const OPEN_AT = 55;             // 왼쪽 스와이프 열림 임계값
+    const SEND_AT = 90;             // 오른쪽 스와이프 전송 임계값
+
+    const SAMPLE_WORDS = [
+      { sentence: "We can't sign off on this plan.", meaning: "이 계획을 최종 승인할 수 없습니다." },
+      { sentence: "Please keep me in the loop regarding the feedback.", meaning: "피드백 건 계속 업데이트 해 주세요." },
+      { sentence: "You hit the nail on the head with that analysis.", meaning: "당신의 분석이 정곡을 찔렀어요." },
     ];
 
-    function sortSentencesNewestFirst(items) {
-      return [...items].sort((a, b) => {
-        const aTime = Date.parse(a.createdAt || "") || 0;
-        const bTime = Date.parse(b.createdAt || "") || 0;
-        return bTime - aTime;
-      });
+    /* ============================================================
+       2. 저장소 — 어댑터 교체만으로 백엔드가 바뀐다
+       상태: learning(학습장) → testing(테스트) → mastered(숨김)
+       ------------------------------------------------------------
+       ★ 3단계(Supabase)에서 할 일은 두 가지뿐이다.
+         (1) 아래 LocalAdapter 와 같은 6개 메서드를 가진 SupabaseAdapter 작성
+         (2) 맨 아래 9번 섹션의 Store.use(LocalAdapter) 를 교체
+       화면 코드(5~8번 섹션)는 한 줄도 고치지 않는다.
+       낙관적 업데이트·롤백·동기화 상태는 이미 Store 안에 들어 있다.
+       ============================================================ */
+
+    /* 어댑터 계약
+         name                 표시용 이름
+         all()             → Promise<word[]>   최초 로드
+         insert(word)      → Promise<void>
+         update(id, patch) → Promise<void>
+         remove(id)        → Promise<void>
+         replaceAll(list)  → Promise<void>     초기화용
+       실패하면 throw 한다. 되돌리기와 안내는 Store 가 책임진다. */
+    const LocalAdapter = {
+      name: 'local',
+      _list: [],
+      _flush() { localStorage.setItem(STORAGE_KEY, JSON.stringify(this._list)); },
+
+      async all() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) { this._list = JSON.parse(raw); return this._list.map(w => ({ ...w })); }
+        } catch (e) { console.warn('저장된 데이터를 읽지 못했습니다', e); }
+        this._list = SAMPLE_WORDS.map(s => makeWord(s.sentence, s.meaning));
+        this._flush();
+        return this._list.map(w => ({ ...w }));
+      },
+      async insert(w) { this._list.push({ ...w }); this._flush(); },
+      async update(id, patch) { const t = this._list.find(x => x.id === id); if (t) Object.assign(t, patch); this._flush(); },
+      async remove(id) { this._list = this._list.filter(x => x.id !== id); this._flush(); },
+      async replaceAll(list) { this._list = list.map(w => ({ ...w })); this._flush(); },
+    };
+
+    function makeWord(sentence, meaning, lang = 'EN') {
+      const now = new Date().toISOString();
+      return {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        sentence, meaning,
+        lang,
+        status: 'learning',
+        correct_streak: 0,
+        created_at: now,
+        updated_at: now,
+      };
     }
 
-    // 데이터 접근 계층: 추후 이 두 함수의 내부만 Supabase 호출로 교체하면 됩니다.
-    async function loadSentences() {
-      const keysToCheck = [STORAGE_KEY, BACKUP_KEY, ...LEGACY_STORAGE_KEYS];
+    const Store = {
+      adapter: LocalAdapter,
+      cache: [],
+      sync: { mode: 'local', at: null },   // 'local' | 'online' | 'offline' — 3단계에서 갱신
+      onChange: () => { },                  // 9번 섹션에서 renderAll 로 연결
 
-      for (const key of keysToCheck) {
+      use(adapter) { this.adapter = adapter; },
+
+      async init() {
         try {
-          const saved = localStorage.getItem(key);
-          if (!saved) continue;
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const sorted = sortSentencesNewestFirst(parsed);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
-            return sorted;
-          }
-          if (key === STORAGE_KEY && Array.isArray(parsed)) return sortSentencesNewestFirst(parsed);
-        } catch (error) {
-          console.warn(`${key} 저장값을 읽지 못했습니다.`, error);
+          this.cache = await this.adapter.all();
+        } catch (e) {
+          console.warn('불러오기 실패', e);
+          this.cache = [];
+          toast('데이터를 불러오지 못했어요');
+        }
+        this.onChange();
+      },
+
+      all() { return this.cache; },
+      byStatus(s) { return this.cache.filter(w => w.status === s); },
+      find(id) { return this.cache.find(w => w.id === id); },
+
+      /* 쓰기는 전부 낙관적 업데이트: 화면을 먼저 바꾸고 저장은 뒤따른다.
+         실패하면 원래대로 되돌리고 알린다. (PLAN 3단계 동기화 규칙) */
+      add(sentence, meaning, lang = 'EN') {
+        const w = makeWord(sentence, meaning, lang);
+        this.cache.push(w);
+        this.onChange();
+        return this._commit(() => this.adapter.insert(w),
+          () => { this.cache = this.cache.filter(x => x.id !== w.id); });
+      },
+
+      // silent: 목록 애니메이션 중이라 즉시 재렌더하면 안 되는 경우
+      update(id, patch, { silent = false } = {}) {
+        const w = this.find(id);
+        if (!w) return Promise.resolve(false);
+        const before = { ...w };
+        const full = { ...patch, updated_at: new Date().toISOString() };
+        Object.assign(w, full);
+        if (!silent) this.onChange();
+        return this._commit(() => this.adapter.update(id, full),
+          () => { Object.assign(w, before); });
+      },
+
+      remove(id) {
+        const i = this.cache.findIndex(w => w.id === id);
+        if (i < 0) return Promise.resolve(false);
+        const [w] = this.cache.splice(i, 1);
+        this.onChange();
+        return this._commit(() => this.adapter.remove(id),
+          () => { this.cache.splice(i, 0, w); });
+      },
+
+      resetToSample() {
+        const before = this.cache;
+        this.cache = SAMPLE_WORDS.map(s => makeWord(s.sentence, s.meaning));
+        this.onChange();
+        return this._commit(() => this.adapter.replaceAll(this.cache),
+          () => { this.cache = before; });
+      },
+
+      async _commit(run, rollback) {
+        try {
+          await run();
+          if (this.sync.mode === 'online') this.sync.at = Date.now();
+          return true;
+        } catch (e) {
+          console.warn('저장 실패', e);
+          rollback();
+          this.onChange();
+          toast('저장하지 못했어요');
+          return false;
+        }
+      },
+    };
+
+    const byStatus = s => Store.byStatus(s);
+    const findWord = id => Store.find(id);
+
+    /* ============================================================
+       3. 발음 — 제공자 체인 (앞에서부터 되는 것을 쓴다)
+       ------------------------------------------------------------
+       ★ 4단계(ElevenLabs)에서 고칠 곳은 ElevenLabs 객체의
+         available() 와 fetchAudio() 두 함수뿐이다.
+         키 없음·401·429·네트워크 오류는 Speech 가 잡아서 자동으로
+         기기 내장 음성으로 넘긴다. 화면 코드는 손대지 않는다.
+       ============================================================ */
+    const LOCALE = { EN: 'en-US', FR: 'fr-FR' };         // lang 필드 → 음성 로케일
+
+    /* ---------- 제공자 1: ElevenLabs (4단계에서 활성화) ---------- */
+    const ElevenLabs = {
+      name: 'elevenlabs',
+      MODEL: 'eleven_multilingual_v2',                   // 프랑스어까지 대응
+      VOICE_ID: '',                                      // 4단계에서 지정
+      _cache: new Map(),                                 // 문장 → objectURL (무료 쿼터 절약)
+      _audio: null,
+
+      getKey() { return localStorage.getItem(KEY_ELEVEN) || ''; },
+      setKey(v) { v ? localStorage.setItem(KEY_ELEVEN, v) : localStorage.removeItem(KEY_ELEVEN); },
+
+      // ★ 4단계: return !!this.getKey() && !!this.VOICE_ID;
+      available() { return false; },
+
+      // ★ 4단계: 여기만 채우면 된다.
+      //   POST https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}
+      //   headers { 'xi-api-key': this.getKey(), 'Content-Type': 'application/json' }
+      //   body    { text, model_id: this.MODEL }
+      //   → res.ok 가 아니면 throw (Speech 가 기기 음성으로 fallback)
+      //   → res.blob() 반환
+      async fetchAudio(/* text, lang */) { throw new Error('ElevenLabs 미연결 (4단계)'); },
+
+      async speak(text, lang) {
+        let url = this._cache.get(text);
+        if (!url) {
+          url = URL.createObjectURL(await this.fetchAudio(text, lang));
+          this._cache.set(text, url);
+        }
+        if (this._audio) this._audio.pause();
+        this._audio = new Audio(url);
+        // iOS는 사용자 탭에서 시작된 호출만 소리가 난다 → 재생은 항상 버튼 경로에서만
+        await this._audio.play();
+      },
+    };
+
+    /* ---------- 제공자 2: 기기 내장 음성 (요건서 5항) ---------- */
+    const WebSpeech = {
+      name: 'device',
+      voices: [],
+      ready: false,
+
+      available() { return 'speechSynthesis' in window; },
+
+      init() {
+        if (this.ready || !this.available()) return Promise.resolve(this.voices);
+        return new Promise(resolve => {
+          const pull = () => {
+            const v = speechSynthesis.getVoices();
+            if (v && v.length) { this.voices = v; this.ready = true; resolve(v); return true; }
+            return false;
+          };
+          if (pull()) return;
+          speechSynthesis.addEventListener('voiceschanged', pull);
+          let tries = 0;
+          const t = setInterval(() => { if (pull() || ++tries > 20) clearInterval(t); }, 150);
+          setTimeout(() => resolve(this.voices), 3200);   // 최악의 경우에도 진행
+        });
+      },
+
+      // 점수제: 한국어 음성은 -1000으로 절대 배제
+      score(v, locale) {
+        const lang = (v.lang || '').toLowerCase().replace('_', '-');
+        const want = locale.toLowerCase(), base = want.split('-')[0];
+        if (lang.startsWith('ko') && base !== 'ko') return -1000;
+        let s = 0;
+        if (lang === want) s += 100;
+        else if (lang.startsWith(base)) s += 60;
+        else s -= 300;                                   // 대상 언어가 아니면 탈락
+        const n = (v.name || '').toLowerCase();
+        // macOS 장난·저품질 음성 배제 (Bad News, Zarvox 등)
+        if (/albert|bad news|good news|bahh|bells|boing|bubbles|cellos|deranged|hysterical|jester|junior|organ|superstar|trinoids|whisper|wobble|zarvox|ralph|fred|kathy|princess|bruce|agnes|victoria/.test(n)) s -= 400;
+        if (/google|enhanced|premium|neural|natural|siri/.test(n)) s += 30;
+        if (/samantha|alex|daniel|karen|aaron|nicky|moira|tessa|rishi|thomas|amelie|audrey/.test(n)) s += 10;
+        if (v.localService === false) s += 5;
+        return s;
+      },
+
+      pick(locale) {
+        if (!this.voices.length) return null;
+        const best = this.voices
+          .map(v => ({ v, s: this.score(v, locale) }))
+          .sort((a, b) => b.s - a.s)[0];
+        return (best && best.s > 0) ? best.v : null;     // 적합한 음성이 없으면 lang만 지정
+      },
+
+      async speak(text, lang) {
+        const locale = LOCALE[lang] || LOCALE.EN;
+        await this.init();
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        const v = this.pick(locale);
+        if (v) u.voice = v;
+        u.lang = v ? v.lang : locale;                    // fallback: 언어 태그만
+        u.rate = 0.95;
+        // iOS는 cancel 직후 speak가 무시되는 경우가 있어 한 틱 뒤에 재생
+        setTimeout(() => speechSynthesis.speak(u), 40);
+      },
+    };
+
+    const Speech = {
+      providers: [ElevenLabs, WebSpeech],                // 순서 = 우선순위
+      init() { return WebSpeech.init(); },
+
+      async say(text, lang = 'EN') {
+        for (const p of this.providers) {
+          if (!p.available()) continue;
+          try { await p.speak(text, lang); return p.name; }
+          catch (e) { console.warn(`${p.name} 발음 실패 → 다음 수단으로`, e); }
+        }
+        toast('발음을 재생할 수 없어요');
+        return null;
+      },
+    };
+
+    /* ============================================================
+       4. 공통 UI
+       ============================================================ */
+    const $ = s => document.querySelector(s);
+    const escapeHtml = t => String(t).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    let toastTimer;
+    function toast(msg) {
+      const el = $('#toast');
+      el.textContent = msg;
+      el.classList.add('on');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('on'), 1900);
+    }
+
+    let currentTab = 'words';
+    function switchTab(tab) {
+      currentTab = tab;
+      closeOpenRow();
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('on'));
+      $('#p-' + tab).classList.add('on');
+      // 탭바(학습장/테스트) + 헤더 톱니바퀴(설정) 중 현재 화면만 활성 표시
+      document.querySelectorAll('.tb button[data-tab]')
+        .forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+      $('#btn-settings').classList.toggle('on', tab === 'settings');
+      if (tab === 'review') startReview();
+      if (tab === 'settings') renderSettings();
+    }
+
+    function renderAll() {
+      renderWords();
+      if (currentTab === 'settings') renderSettings();
+    }
+
+    /* ============================================================
+       5. 학습장 탭
+       ============================================================ */
+    function filteredWords() {
+      const q = $('#q').value.trim().toLowerCase();
+      const list = byStatus('learning').slice().sort((a, b) => b.id - a.id);
+      if (!q) return list;
+      return list.filter(w =>
+        w.sentence.toLowerCase().includes(q) || w.meaning.toLowerCase().includes(q));
+    }
+
+    function renderWords() {
+      const list = filteredWords();
+      const all = byStatus('learning').length;
+      $('#words-count').textContent = `${list.length}개`;
+      $('#q-clear').classList.toggle('on', $('#q').value.length > 0);
+
+      const box = $('#word-list');
+      if (!list.length) {
+        box.innerHTML = all === 0
+          ? `<div class="empty"><div class="big">공부할 표현이 없어요</div><p>아래 <b>+</b> 버튼으로 문장을 넣어보세요.<br>테스트에서 틀린 표현도 여기로 돌아옵니다.</p></div>`
+          : `<div class="empty"><div class="big">검색 결과가 없어요</div><p>다른 단어로 찾아보세요.</p></div>`;
+        return;
+      }
+
+      box.innerHTML = list.map(w => `
+    <div class="row" data-id="${w.id}">
+      <div class="row-send"><svg><use href="#i-arrow"/></svg>테스트로 보내기</div>
+      <div class="row-acts">
+        <button class="b-edit" data-act="edit"><svg><use href="#i-pencil"/></svg>수정</button>
+        <button class="b-del"  data-act="del"><svg><use href="#i-trash"/></svg>삭제</button>
+      </div>
+      <div class="row-front">
+        <div class="txt">
+          <div class="en">${escapeHtml(w.sentence)}</div>
+          <div class="ko">${escapeHtml(w.meaning)}</div>
+        </div>
+        <button class="ico" data-act="say" aria-label="발음 듣기"><svg><use href="#i-sound"/></svg></button>
+      </div>
+    </div>`).join('');
+    }
+
+    /* ---------- 스와이프 ---------- */
+    let openRow = null;
+    let lastSwipeAt = 0;                                // 드래그 직후 click 무시용
+
+    const justSwiped = () => Date.now() - lastSwipeAt < 320;
+
+    function closeOpenRow() {
+      if (!openRow) return;
+      const f = openRow.querySelector('.row-front');
+      f.classList.add('snap');
+      f.style.transform = 'translateX(0)';
+      openRow = null;
+    }
+
+    function sendToReview(row) {
+      const id = Number(row.dataset.id);
+      if (!findWord(id)) return;
+      // silent: 사라지는 애니메이션이 끝난 뒤에 목록을 다시 그린다
+      Store.update(id, { status: 'testing', correct_streak: 0 }, { silent: true });
+
+      const f = row.querySelector('.row-front');
+      f.classList.add('snap');
+      f.style.transform = 'translateX(100%)';
+      row.style.height = row.offsetHeight + 'px';
+      requestAnimationFrame(() => {
+        row.classList.add('gone');
+        row.style.height = '0px';
+        row.style.opacity = '0';
+      });
+      setTimeout(() => { renderAll(); }, 240);
+      toast('테스트로 보냈어요');
+    }
+
+    (function bindSwipe() {
+      const box = $('#word-list');
+      let row = null, front = null, x0 = 0, y0 = 0, dx = 0, axis = null, base = 0;
+
+      box.addEventListener('pointerdown', e => {
+        if (e.target.closest('.row-acts')) return;      // 수정/삭제 버튼은 통과
+        const r = e.target.closest('.row');
+        if (!r) return;
+        if (openRow && openRow !== r) closeOpenRow();
+        row = r; front = r.querySelector('.row-front');
+        base = (openRow === r) ? -ACTION_W : 0;
+        x0 = e.clientX; y0 = e.clientY; dx = 0; axis = null;
+        front.classList.remove('snap');
+      });
+
+      box.addEventListener('pointermove', e => {
+        if (!row) return;
+        const mx = e.clientX - x0, my = e.clientY - y0;
+        if (!axis) {
+          if (Math.abs(mx) > 8 || Math.abs(my) > 8) {
+            axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+            if (axis === 'x') front.setPointerCapture(e.pointerId);
+            else { row = null; return; }                // 세로 스크롤에 양보
+          } else return;
+        }
+        dx = base + mx;
+        if (dx < -ACTION_W) dx = -ACTION_W - (ACTION_W + dx) * 0.25;   // 고무줄
+        if (dx > 0 && base < 0) dx = Math.min(dx, 0);
+        front.style.transform = `translateX(${dx}px)`;
+      });
+
+      function finish() {
+        if (!row || axis !== 'x') { row = null; return; }
+        const r = row, f = front, d = dx;
+        row = null;
+        f.classList.add('snap');
+        if (Math.abs(d) > 8) lastSwipeAt = Date.now();
+
+        if (d <= -OPEN_AT) {                            // ← 수정/삭제 열기
+          f.style.transform = `translateX(${-ACTION_W}px)`;
+          openRow = r;
+        } else if (d >= SEND_AT) {                      // → 테스트로 보내기
+          openRow = null;
+          sendToReview(r);
+        } else {
+          f.style.transform = 'translateX(0)';
+          openRow = null;
         }
       }
-
-      const restored = sortSentencesNewestFirst(RESTORED_SENTENCES.map(item => ({ ...item })));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
-      return restored;
-    }
-
-    async function saveSentences(items) {
-      const current = localStorage.getItem(STORAGE_KEY);
-      if (current) localStorage.setItem(BACKUP_KEY, current);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sortSentencesNewestFirst(items)));
-    }
-
-    // ElevenLabs 연결 지점: 추후 이 함수 안에서 API를 호출하고 오디오를 재생하세요.
-    async function playAudio(sentence) {
-      void sentence;
-      showToast("듣기 기능은 곧 연결할 수 있어요.");
-    }
-
-    let sentences = [];
-    let reviewMode = "meaning";
-    const concealedIds = new Set();
-    const list = document.getElementById("sentenceList");
-    const form = document.getElementById("sentenceForm");
-    const englishInput = document.getElementById("englishInput");
-    const koreanInput = document.getElementById("koreanInput");
-    const translateStatus = document.getElementById("translateStatus");
-    const toggleAllButton = document.getElementById("toggleAllButton");
-    const modeButtons = document.querySelectorAll(".mode-button");
-    const toast = document.getElementById("toast");
-    let translationCache = loadTranslationCache();
-    let translationTimer = 0;
-    let translationRequestId = 0;
-    let translationAbortController = null;
-    let lastAutoTranslation = "";
-    let koreanEditedManually = false;
-
-    function escapeHtml(value) {
-      const div = document.createElement("div");
-      div.textContent = value;
-      return div.innerHTML;
-    }
-
-    function showToast(message) {
-      toast.textContent = message;
-      toast.classList.add("show");
-      clearTimeout(showToast.timer);
-      showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
-    }
-
-    function setTranslationStatus(message = "", state = "") {
-      translateStatus.textContent = message;
-      translateStatus.classList.toggle("is-working", state === "working");
-      translateStatus.classList.toggle("is-error", state === "error");
-      translateStatus.classList.toggle("is-done", state === "done");
-    }
-
-    function loadTranslationCache() {
-      try {
-        const saved = localStorage.getItem(TRANSLATION_CACHE_KEY);
-        const parsed = saved ? JSON.parse(saved) : {};
-        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-      } catch (error) {
-        console.warn("번역 캐시를 읽지 못했습니다.", error);
-        return {};
-      }
-    }
-
-    function saveTranslationCache() {
-      const entries = Object.entries(translationCache).slice(-120);
-      localStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
-    }
-
-    function normalizeTranslationKey(text) {
-      return text.toLowerCase().replace(/\s+/g, " ").trim();
-    }
-
-    function canAutoFillKorean() {
-      const currentKorean = koreanInput.value.trim();
-      return !koreanEditedManually || !currentKorean || currentKorean === lastAutoTranslation;
-    }
-
-    function decodeHtmlEntities(value) {
-      const textarea = document.createElement("textarea");
-      textarea.innerHTML = value;
-      return textarea.value;
-    }
-
-    async function translateToKorean(text, signal) {
-      const byteLength = new TextEncoder().encode(text).length;
-      if (byteLength > 500) throw new Error("TOO_LONG");
-
-      const params = new URLSearchParams({
-        q: text,
-        langpair: "en|ko",
-        mt: "1"
-      });
-      const response = await fetch(`https://api.mymemory.translated.net/get?${params.toString()}`, { signal });
-      if (!response.ok) throw new Error(`HTTP_${response.status}`);
-
-      const data = await response.json();
-      const translated = decodeHtmlEntities(data?.responseData?.translatedText || "").trim();
-      if (!translated) throw new Error("EMPTY_TRANSLATION");
-      return translated;
-    }
-
-    function applyAutoTranslation(translated, statusMessage = "자동 번역 완료") {
-      lastAutoTranslation = translated;
-      koreanEditedManually = false;
-      koreanInput.value = translated;
-      setTranslationStatus(statusMessage, "done");
-    }
-
-    async function runAutoTranslation(text) {
-      const english = text.trim();
-      if (!english || !canAutoFillKorean()) return;
-
-      const requestId = ++translationRequestId;
-      const cacheKey = normalizeTranslationKey(english);
-      const cached = translationCache[cacheKey];
-      if (cached) {
-        applyAutoTranslation(cached, "저장된 번역");
-        return;
-      }
-
-      if (translationAbortController) translationAbortController.abort();
-      translationAbortController = new AbortController();
-      setTranslationStatus("자동 번역 중", "working");
-
-      try {
-        const translated = await translateToKorean(english, translationAbortController.signal);
-        const latestEnglish = englishInput.value.trim();
-        if (requestId !== translationRequestId || latestEnglish !== english || !canAutoFillKorean()) return;
-        translationCache[cacheKey] = translated;
-        saveTranslationCache();
-        applyAutoTranslation(translated);
-      } catch (error) {
-        if (error.name === "AbortError") return;
-        const message = error.message === "TOO_LONG" ? "문장이 너무 길어요" : "번역 실패";
-        setTranslationStatus(message, "error");
-        showToast("자동 번역이 안 되면 한국어 뜻을 직접 입력해 주세요.");
-      }
-    }
-
-    function scheduleAutoTranslation() {
-      clearTimeout(translationTimer);
-      const english = englishInput.value.trim();
-
-      if (translationAbortController) translationAbortController.abort();
-      if (!english) {
-        if (koreanInput.value.trim() === lastAutoTranslation) koreanInput.value = "";
-        lastAutoTranslation = "";
-        koreanEditedManually = false;
-        setTranslationStatus("");
-        return;
-      }
-
-      if (!canAutoFillKorean()) {
-        setTranslationStatus("직접 입력 유지");
-        return;
-      }
-
-      setTranslationStatus("번역 대기");
-      translationTimer = setTimeout(() => runAutoTranslation(english), TRANSLATION_DEBOUNCE_MS);
-    }
-
-    function render() {
-      document.getElementById("sentenceCount").textContent = sentences.length;
-      document.getElementById("hiddenCount").textContent = concealedIds.size;
-      const allHidden = sentences.length > 0 && sentences.every(item => concealedIds.has(item.id));
-      const isWriting = reviewMode === "writing";
-      toggleAllButton.textContent = allHidden
-        ? (isWriting ? "정답 모두 보기" : "뜻 모두 보기")
-        : (isWriting ? "정답 모두 가리기" : "뜻 모두 가리기");
-      document.getElementById("hiddenLabel").textContent = isWriting ? "가려진 정답" : "가려진 뜻";
-      document.getElementById("reviewHelper").textContent = isWriting
-        ? "한국어를 보고 영작한 뒤 영어 정답을 확인해 보세요."
-        : "영어를 보고 한국어 뜻을 떠올려 보세요.";
-      modeButtons.forEach(button => {
-        const active = button.dataset.mode === reviewMode;
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", String(active));
-      });
-
-      if (sentences.length === 0) {
-        list.innerHTML = `<div class="empty"><div class="empty-art" aria-hidden="true"></div><strong>첫 문장을 심어 볼까요?</strong><span>위 입력칸에 기억하고 싶은 문장을 적어 주세요.</span></div>`;
-        return;
-      }
-
-      list.innerHTML = sentences.map((item, index) => `
-        <article class="card ${reviewMode}-mode ${concealedIds.has(item.id) ? "concealed" : ""}" data-id="${item.id}">
-          <div class="number">${String(index + 1).padStart(2, "0")}</div>
-          <div class="copy">
-            <p class="english">${escapeHtml(item.english)}</p>
-            <p class="korean">${escapeHtml(item.korean)}</p>
-          </div>
-          <div class="actions">
-            <button class="icon-button reveal" type="button" aria-label="${isWriting ? "영어 정답" : "뜻"} ${concealedIds.has(item.id) ? "보기" : "가리기"}"><span class="icon">◉</span>${concealedIds.has(item.id) ? (isWriting ? "정답 보기" : "뜻 보기") : (isWriting ? "정답 가리기" : "뜻 가리기")}</button>
-            <button class="icon-button listen" type="button" aria-label="영어 문장 듣기"><span class="icon">♪</span>듣기</button>
-            <button class="icon-button delete" type="button" aria-label="문장 삭제"><span class="icon">×</span>삭제</button>
-          </div>
-        </article>`).join("");
-    }
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const english = englishInput.value.trim();
-      if (english && !koreanInput.value.trim()) await runAutoTranslation(english);
-      const korean = koreanInput.value.trim();
-      if (english && !korean) {
-        koreanInput.focus();
-        showToast("한국어 뜻이 필요해요.");
-        return;
-      }
-      if (!english || !korean) return;
-      sentences = sortSentencesNewestFirst([
-        ...sentences,
-        { id: crypto.randomUUID(), english, korean, createdAt: new Date().toISOString() }
-      ]);
-      await saveSentences(sentences);
-      form.reset();
-      clearTimeout(translationTimer);
-      lastAutoTranslation = "";
-      koreanEditedManually = false;
-      setTranslationStatus("");
-      render();
-      englishInput.focus();
-      showToast("새 문장을 저장했어요.");
-    });
-
-    englishInput.addEventListener("input", scheduleAutoTranslation);
-
-    koreanInput.addEventListener("input", () => {
-      const korean = koreanInput.value.trim();
-      koreanEditedManually = Boolean(korean && korean !== lastAutoTranslation);
-      if (!korean) {
-        koreanEditedManually = false;
-        setTranslationStatus("");
-      } else if (koreanEditedManually) {
-        setTranslationStatus("직접 입력");
-      }
-    });
-
-    list.addEventListener("click", async (event) => {
-      const card = event.target.closest(".card");
-      if (!card) return;
-      const id = card.dataset.id;
-      const item = sentences.find(sentence => sentence.id === id);
-      if (event.target.closest(".delete")) {
-        sentences = sentences.filter(sentence => sentence.id !== id);
-        concealedIds.delete(id);
-        await saveSentences(sentences);
-        render();
-        showToast("문장을 삭제했어요.");
-      } else if (event.target.closest(".listen")) {
-        await playAudio(item.english);
-      } else if (event.target.closest(".reveal") || event.target.closest(".copy")) {
-        concealedIds.has(id) ? concealedIds.delete(id) : concealedIds.add(id);
-        render();
-      }
-    });
-
-    toggleAllButton.addEventListener("click", () => {
-      const allHidden = sentences.length > 0 && sentences.every(item => concealedIds.has(item.id));
-      concealedIds.clear();
-      if (!allHidden) sentences.forEach(item => concealedIds.add(item.id));
-      render();
-    });
-
-    modeButtons.forEach(button => {
-      button.addEventListener("click", () => {
-        reviewMode = button.dataset.mode;
-        concealedIds.clear();
-        sentences.forEach(item => concealedIds.add(item.id));
-        render();
-        showToast(reviewMode === "writing" ? "영작 복습 모드예요." : "뜻 복습 모드예요.");
-      });
-    });
-
-    (async function init() {
-      sentences = await loadSentences();
-      render();
+      box.addEventListener('pointerup', finish);
+      box.addEventListener('pointercancel', finish);
     })();
+
+    /* ---------- 리스트 클릭 ---------- */
+    $('#word-list').addEventListener('click', e => {
+      if (justSwiped()) return;                         // 방금 민 것은 탭이 아님
+      const btn = e.target.closest('[data-act]');
+      const row = e.target.closest('.row');
+      if (!row) return;
+      const id = Number(row.dataset.id);
+
+      if (!btn) { if (openRow === row) closeOpenRow(); return; }
+
+      if (btn.dataset.act === 'say') {
+        if (openRow === row) { closeOpenRow(); return; }
+        const w = findWord(id);
+        if (!w) return;
+        btn.classList.add('playing');
+        setTimeout(() => btn.classList.remove('playing'), 900);
+        Speech.say(w.sentence, w.lang);
+      }
+      if (btn.dataset.act === 'edit') { closeOpenRow(); openSheet(id); }
+      if (btn.dataset.act === 'del') {
+        const w = findWord(id);
+        if (!w) return;
+        if (!confirm(`삭제할까요?\n\n${w.sentence}`)) return;
+        openRow = null;
+        Store.remove(id);
+        toast('삭제했어요');
+      }
+    });
+
+    $('#q').addEventListener('input', () => { closeOpenRow(); renderWords(); });
+    $('#q-clear').addEventListener('click', () => { $('#q').value = ''; renderWords(); $('#q').focus(); });
+
+    /* ============================================================
+       6. 입력/수정 시트
+       ============================================================ */
+    let editId = null;
+
+    function openSheet(id = null) {
+      editId = id;
+      const w = id ? findWord(id) : null;
+      $('#sheet-title').textContent = w ? '표현 수정' : '새 표현 추가';
+      $('#in-sentence').value = w ? w.sentence : '';
+      $('#in-meaning').value = w ? w.meaning : '';
+      $('#dim').classList.add('on');
+      $('#sheet').classList.add('on');
+      setTimeout(() => $('#in-sentence').focus(), 220);
+    }
+
+    function closeSheet() {
+      $('#dim').classList.remove('on');
+      $('#sheet').classList.remove('on');
+      editId = null;
+    }
+
+    $('#dim').addEventListener('click', closeSheet);
+
+    $('#sheet-save').addEventListener('click', () => {
+      const s = $('#in-sentence').value.trim();
+      const m = $('#in-meaning').value.trim();
+      if (!s) { toast('영어 문장을 입력해 주세요'); $('#in-sentence').focus(); return; }
+      if (!m) { toast('한국어 뜻을 입력해 주세요'); $('#in-meaning').focus(); return; }
+
+      if (editId) {
+        Store.update(editId, { sentence: s, meaning: m });
+        toast('수정했어요');
+      } else {
+        Store.add(s, m);
+        toast('추가했어요');
+      }
+      closeSheet();
+    });
+
+    $('#in-meaning').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sheet-save').click(); });
+    $('#in-sentence').addEventListener('keydown', e => { if (e.key === 'Enter') $('#in-meaning').focus(); });
+
+    /* ============================================================
+       7. 테스트 탭
+       ============================================================ */
+    let queue = [], qi = 0, revealed = false;
+
+    function shuffle(a) {
+      const r = a.slice();
+      for (let i = r.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [r[i], r[j]] = [r[j], r[i]];
+      }
+      return r;
+    }
+
+    function startReview() {
+      queue = shuffle(byStatus('testing').map(w => w.id));
+      qi = 0; revealed = false;
+      renderReview();
+    }
+
+    function renderReview() {
+      const box = $('#p-review');
+
+      if (!queue.length) {
+        box.innerHTML = `<div class="empty">
+      <div class="big">테스트할 표현이 없어요</div>
+      <p>학습장에서 표현을 <b>오른쪽으로 밀어서</b><br>테스트로 보내주세요.</p>
+    </div>`;
+        return;
+      }
+      if (qi >= queue.length) {
+        box.innerHTML = `<div class="empty">
+      <div class="big">이번 회차 끝!</div>
+      <p>${queue.length}개를 모두 확인했어요.</p>
+      <button class="btn block" id="again" style="margin-top:14px;max-width:220px">다시 하기</button>
+    </div>`;
+        $('#again').addEventListener('click', startReview);
+        return;
+      }
+
+      const w = findWord(queue[qi]);
+      if (!w || w.status !== 'testing') { qi++; renderReview(); return; }
+
+      const dots = [0, 1, 2].map(i => `<i class="dot${i < w.correct_streak ? ' f' : ''}"></i>`).join('');
+      const left = MASTER_AT - w.correct_streak;
+
+      box.innerHTML = `
+    <div class="prog">
+      <span>${qi + 1} / ${queue.length}</span>
+      <span class="streak">연속 ${dots}</span>
+    </div>
+    <div class="qwrap">
+      <div class="qcard">
+        <div class="tag">이 뜻을 영어로 말해보세요</div>
+        <div class="ko-q">${escapeHtml(w.meaning)}</div>
+        ${revealed ? `
+        <div class="answer">
+          <div class="en-a">${escapeHtml(w.sentence)}</div>
+          <button class="play" id="r-say"><svg><use href="#i-sound"/></svg>발음 듣기</button>
+        </div>` : ''}
+      </div>
+    </div>
+    <div class="qfoot">
+    ${revealed ? `
+      <div class="pair">
+        <button class="btn wrong" id="r-bad">틀렸어요</button>
+        <button class="btn"       id="r-good">맞췄어요</button>
+      </div>
+      <div class="hint">${left === 1 ? '한 번 더 맞추면 암기 완료로 넘어가요'
+            : `${left}번 더 연속으로 맞추면 암기 완료예요`}</div>`
+          : `<button class="btn block" id="r-show">정답 확인</button>
+       <div class="hint">소리 내어 말해본 뒤 눌러주세요</div>`}
+    </div>
+  `;
+
+      if (revealed) {
+        $('#r-say').addEventListener('click', () => Speech.say(w.sentence, w.lang));
+        $('#r-bad').addEventListener('click', () => answer(w, false));
+        $('#r-good').addEventListener('click', () => answer(w, true));
+        Speech.say(w.sentence, w.lang);                 // 정답 공개 시 자동 재생
+      } else {
+        $('#r-show').addEventListener('click', () => { revealed = true; renderReview(); });
+      }
+    }
+
+    function answer(w, correct) {
+      if (correct) {
+        const streak = w.correct_streak + 1;
+        if (streak >= MASTER_AT) {
+          // 소프트 삭제: 목록에서만 숨기고 통계는 남김
+          Store.update(w.id, { correct_streak: streak, status: 'mastered' });
+          toast('암기 완료! 목록에서 사라져요');
+        } else {
+          Store.update(w.id, { correct_streak: streak });
+          toast(`좋아요 · 연속 ${streak}회`);
+        }
+      } else {
+        Store.update(w.id, { correct_streak: 0, status: 'learning' });   // 학습장으로 복귀
+        toast('학습장으로 돌려놨어요');
+      }
+      qi++; revealed = false;
+      renderReview();
+    }
+
+    /* ============================================================
+       8. 설정 탭
+       ============================================================ */
+    // 동기화 줄은 Store.sync 를 그대로 비춘다 → 3단계에서 HTML 수정 불필요
+    const SYNC_LABEL = { local: '미연결', online: '연결됨', offline: '오프라인' };
+
+    function renderSettings() {
+      $('#s-total').textContent = Store.all().length;
+      $('#s-done').textContent = byStatus('mastered').length;
+      $('#s-learn').textContent = byStatus('learning').length;
+
+      const { mode, at } = Store.sync;
+      const pill = $('#sync-pill');
+      pill.className = 'pill' + (mode === 'online' ? '' : ' off');
+      pill.innerHTML = `<i class="d"></i>${SYNC_LABEL[mode] || mode}`;
+      $('#sync-where').textContent = mode === 'local'
+        ? '이 기기 (localStorage)'
+        : 'Supabase' + (at ? ` · ${new Date(at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 동기화` : '');
+
+      const key = ElevenLabs.getKey();
+      $('#el-key').value = '';
+      $('#el-key').placeholder = key ? '저장된 키가 있습니다 (••••)' : 'sk-로 시작하는 키';
+      $('#el-note').textContent = key
+        ? '키가 저장되어 있습니다. 실제 연결은 4단계에서 붙일 예정이라, 지금은 기기 내장 음성으로 재생됩니다.'
+        : '지금은 기기 내장 음성으로 재생됩니다. 고품질 음성 연결은 4단계에서 붙일 예정입니다.';
+      $('#el-save').textContent = key ? '키 삭제하기' : '저장하기';
+    }
+
+    $('#el-save').addEventListener('click', () => {
+      if (ElevenLabs.getKey()) {
+        ElevenLabs.setKey('');
+        toast('키를 삭제했어요');
+      } else {
+        const v = $('#el-key').value.trim();
+        if (!v) { toast('키를 입력해 주세요'); return; }
+        ElevenLabs.setKey(v);
+        toast('키를 저장했어요');
+      }
+      renderSettings();
+    });
+
+    $('#btn-reset').addEventListener('click', () => {
+      if (!confirm('모든 표현을 지우고 샘플 3개로 되돌릴까요?\n이 동작은 되돌릴 수 없습니다.')) return;
+      Store.resetToSample();
+      startReview();
+      switchTab('words');
+      toast('초기화했어요');
+    });
+
+    /* ============================================================
+       9. 시작
+       ============================================================ */
+    document.querySelectorAll('.tb button[data-tab]').forEach(b =>
+      b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    $('#btn-settings').addEventListener('click', () => switchTab('settings'));
+    // 가운데 + 버튼: 어느 화면에서 눌러도 학습장으로 돌아온 뒤 입력 시트를 연다
+    $('#btn-add-nav').addEventListener('click', () => {
+      if (currentTab !== 'words') switchTab('words');
+      openSheet();
+    });
+
+    // overflow:clip 미지원 브라우저(사파리 16 미만) 대비 — 앱 전체가 밀리지 않도록 고정
+    $('#app').addEventListener('scroll', function () { this.scrollTop = 0; this.scrollLeft = 0; });
+
+    document.addEventListener('click', e => {
+      if (justSwiped()) return;
+      if (openRow && !e.target.closest('.row')) closeOpenRow();
+    });
+
+    /* ★ 3단계: 아래 한 줄을 Store.use(SupabaseAdapter) 로 바꾸면 백엔드 교체 완료 */
+    Store.use(LocalAdapter);
+    Store.onChange = renderAll;
+
+    switchTab('words');
+    Store.init();
+    Speech.init();
   </script>
 </body>
+
 </html>
