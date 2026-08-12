@@ -1011,6 +1011,7 @@
     <div id="toast"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     'use strict';
 
@@ -1019,6 +1020,9 @@
        ============================================================ */
     const STORAGE_KEY = 'mylingo_words';
     const KEY_ELEVEN = 'mylingo_elevenlabs_key';
+    const SUPABASE_URL = 'https://obgnpudjoquetmbhqpln.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZ25wdWRqb3F1ZXRtYmhxcGxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0ODk5MDgsImV4cCI6MjEwMjA2NTkwOH0.mUvXRtp3vohR0uQpOw8bDneEkBC1bluvwZrw_YcezGQ';
+    const SUPABASE_TABLE = 'words';
     const MASTER_AT = 3;              // 연속 정답 3회 → 암기 완료
     const ACTION_W = 148;            // 수정+삭제 버튼 폭
     const OPEN_AT = 55;             // 왼쪽 스와이프 열림 임계값
@@ -1069,6 +1073,125 @@
       async replaceAll(list) { this._list = list.map(w => ({ ...w })); this._flush(); },
     };
 
+    const SupabaseAdapter = {
+      name: 'supabase',
+      _client: null,
+
+      client() {
+        if (!window.supabase) throw new Error('Supabase 라이브러리를 불러오지 못했습니다.');
+        if (!this._client) this._client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        return this._client;
+      },
+
+      toWord(row) {
+        const now = new Date().toISOString();
+        return {
+          id: Number(row.id),
+          sentence: row.sentence || '',
+          meaning: row.meaning || '',
+          lang: row.lang || 'EN',
+          status: row.status || 'learning',
+          correct_streak: Number(row.correct_streak || 0),
+          created_at: row.created_at || now,
+          updated_at: row.updated_at || row.created_at || now,
+        };
+      },
+
+      toRow(word) {
+        return {
+          id: Number(word.id),
+          sentence: word.sentence,
+          meaning: word.meaning,
+          lang: word.lang || 'EN',
+          status: word.status || 'learning',
+          correct_streak: Number(word.correct_streak || 0),
+          created_at: word.created_at || new Date().toISOString(),
+          updated_at: word.updated_at || new Date().toISOString(),
+        };
+      },
+
+      localSeedWords() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(parsed)) return [];
+          return parsed
+            .filter(w => w && w.sentence && w.meaning)
+            .map(w => this.toWord({
+              ...w,
+              id: Number(w.id) || Date.now() + Math.floor(Math.random() * 1000),
+            }));
+        } catch (e) {
+          console.warn('로컬 백업 데이터를 읽지 못했습니다', e);
+          return [];
+        }
+      },
+
+      async seedIfEmpty() {
+        const seed = this.localSeedWords().length
+          ? this.localSeedWords()
+          : SAMPLE_WORDS.map(s => makeWord(s.sentence, s.meaning));
+        if (!seed.length) return [];
+
+        const { data, error } = await this.client()
+          .from(SUPABASE_TABLE)
+          .insert(seed.map(w => this.toRow(w)))
+          .select('id,sentence,meaning,lang,status,correct_streak,created_at,updated_at');
+        if (error) throw error;
+        return (data || seed).map(row => this.toWord(row));
+      },
+
+      async all() {
+        const { data, error } = await this.client()
+          .from(SUPABASE_TABLE)
+          .select('id,sentence,meaning,lang,status,correct_streak,created_at,updated_at')
+          .order('id', { ascending: false });
+        if (error) throw error;
+        if (data && data.length) return data.map(row => this.toWord(row));
+        return this.seedIfEmpty();
+      },
+
+      async insert(word) {
+        const { error } = await this.client()
+          .from(SUPABASE_TABLE)
+          .insert(this.toRow(word));
+        if (error) throw error;
+      },
+
+      async update(id, patch) {
+        const row = { ...patch };
+        delete row.id;
+        if ('correct_streak' in row) row.correct_streak = Number(row.correct_streak || 0);
+        const { error } = await this.client()
+          .from(SUPABASE_TABLE)
+          .update(row)
+          .eq('id', Number(id));
+        if (error) throw error;
+      },
+
+      async remove(id) {
+        const { error } = await this.client()
+          .from(SUPABASE_TABLE)
+          .delete()
+          .eq('id', Number(id));
+        if (error) throw error;
+      },
+
+      async replaceAll(list) {
+        const { error: deleteError } = await this.client()
+          .from(SUPABASE_TABLE)
+          .delete()
+          .gte('id', 0);
+        if (deleteError) throw deleteError;
+
+        if (!list.length) return;
+        const { error: insertError } = await this.client()
+          .from(SUPABASE_TABLE)
+          .insert(list.map(w => this.toRow(w)));
+        if (insertError) throw insertError;
+      },
+    };
+
     function makeWord(sentence, meaning, lang = 'EN') {
       const now = new Date().toISOString();
       return {
@@ -1093,12 +1216,41 @@
       async init() {
         try {
           this.cache = await this.adapter.all();
+          this.sync.mode = this.adapter.name === 'supabase' ? 'online' : 'local';
+          this.sync.at = this.adapter.name === 'supabase' ? Date.now() : null;
         } catch (e) {
           console.warn('불러오기 실패', e);
-          this.cache = [];
-          toast('데이터를 불러오지 못했어요');
+          this.sync.mode = this.adapter.name === 'supabase' ? 'offline' : 'local';
+          this.sync.at = null;
+          if (this.adapter.name === 'supabase') {
+            toast('Supabase 연결 실패 · 이 기기 저장소로 열었어요');
+            this.adapter = LocalAdapter;
+            try {
+              this.cache = await this.adapter.all();
+            } catch (localError) {
+              console.warn('로컬 불러오기 실패', localError);
+              this.cache = [];
+            }
+          } else {
+            this.cache = [];
+            toast('데이터를 불러오지 못했어요');
+          }
         }
         this.onChange();
+      },
+
+      async refresh() {
+        if (this.adapter.name !== 'supabase') return;
+        try {
+          this.cache = await this.adapter.all();
+          this.sync.mode = 'online';
+          this.sync.at = Date.now();
+          this.onChange();
+        } catch (e) {
+          console.warn('동기화 새로고침 실패', e);
+          this.sync.mode = 'offline';
+          this.onChange();
+        }
       },
 
       all() { return this.cache; },
@@ -1147,10 +1299,14 @@
       async _commit(run, rollback) {
         try {
           await run();
-          if (this.sync.mode === 'online') this.sync.at = Date.now();
+          if (this.adapter.name === 'supabase') {
+            this.sync.mode = 'online';
+            this.sync.at = Date.now();
+          }
           return true;
         } catch (e) {
           console.warn('저장 실패', e);
+          if (this.adapter.name === 'supabase') this.sync.mode = 'offline';
           rollback();
           this.onChange();
           toast('저장하지 못했어요');
@@ -1697,13 +1853,18 @@
       if (openRow && !e.target.closest('.row')) closeOpenRow();
     });
 
-    /* ★ 3단계: 아래 한 줄을 Store.use(SupabaseAdapter) 로 바꾸면 백엔드 교체 완료 */
-    Store.use(LocalAdapter);
+    /* SupabaseAdapter 를 사용하면 어느 기기에서 열어도 words 테이블의 같은 데이터를 봅니다. */
+    Store.use(SupabaseAdapter);
     Store.onChange = renderAll;
 
     switchTab('words');
     Store.init();
     Speech.init();
+
+    window.addEventListener('focus', () => Store.refresh());
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) Store.refresh();
+    });
   </script>
 </body>
 
